@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Choose a Mode</title>
+    <style>
+        :root {
+            --ink: #172a3a;
+            --muted: #647587;
+            --accent: #167c78;
+            --accent-dark: #11635f;
+            --line: #dce6e8;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            align-items: center;
+            background: radial-gradient(ellipse at 12% 18%, rgba(117, 230, 202, 0.28), transparent 30%),
+                radial-gradient(ellipse at 88% 82%, rgba(255, 176, 142, 0.25), transparent 32%),
+                linear-gradient(135deg, #102b3f 0%, #1c5360 52%, #765b75 100%);
+            background-attachment: fixed;
+            color: var(--ink);
+            display: flex;
+            font-family: "Segoe UI", Arial, sans-serif;
+            justify-content: center;
+            margin: 0;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        main {
+            background: #fff;
+            border: 1px solid rgba(220, 230, 232, 0.9);
+            border-radius: 26px;
+            box-shadow: 0 24px 70px rgba(31, 57, 67, 0.12);
+            max-width: 780px;
+            padding: clamp(28px, 6vw, 52px);
+            text-align: center;
+            width: 100%;
+        }
+
+        .eyebrow {
+            color: var(--accent);
+            font-size: 0.75rem;
+            font-weight: 750;
+            letter-spacing: 0.14em;
+            margin: 0 0 10px;
+            text-transform: uppercase;
+        }
+
+        h1 {
+            font-size: clamp(2rem, 6vw, 2.8rem);
+            letter-spacing: -0.05em;
+            margin: 0;
+        }
+
+        .intro {
+            color: var(--muted);
+            line-height: 1.6;
+            margin: 10px 0 0;
+        }
+
+        .mode-options {
+            display: grid;
+            gap: 18px;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            margin: 30px 0 22px;
+        }
+
+        .mode-card {
+            background: #fbfdfc;
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            color: inherit;
+            min-height: 190px;
+            padding: 24px;
+            text-align: left;
+            text-decoration: none;
+            transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+        }
+
+        .mode-card:hover,
+        .mode-card:focus-visible {
+            border-color: var(--accent);
+            box-shadow: 0 14px 30px rgba(22, 87, 86, 0.1);
+            outline: none;
+            transform: translateY(-3px);
+        }
+
+        .mode-icon {
+            align-items: center;
+            background: #e7f3f0;
+            border-radius: 12px;
+            color: var(--accent-dark);
+            display: flex;
+            font-size: 1.2rem;
+            font-weight: 800;
+            height: 42px;
+            justify-content: center;
+            margin-bottom: 18px;
+            width: 42px;
+        }
+
+        .mode-card:nth-child(2) .mode-icon {
+            background: #fbede6;
+            color: #a85e3d;
+        }
+
+        .mode-card h2 {
+            letter-spacing: -0.02em;
+            margin: 0 0 7px;
+        }
+
+        .mode-card p {
+            color: var(--muted);
+            line-height: 1.5;
+            margin: 0;
+        }
+
+        #mode-error {
+            color: #a63e38;
+            min-height: 1.3em;
+        }
+
+        #logout-link {
+            color: var(--accent-dark);
+            font-weight: 700;
+            text-underline-offset: 4px;
+        }
+    </style>
+</head>
+
+<body>
+    <main>
+        <p class="eyebrow">Choose your experience</p>
+        <h1 id="welcome-heading">Welcome!</h1>
+        <p class="intro">Which mode would you like to enter?</p>
+
+        <nav class="mode-options" aria-label="Choose a mode">
+            <a class="mode-card" href="Welcome.html">
+                <span class="mode-icon" aria-hidden="true">U</span>
+                <h2>User Mode</h2>
+                <p>Continue to your personal welcome page.</p>
+            </a>
+            <a class="mode-card" href="Admin.html">
+                <span class="mode-icon" aria-hidden="true">A</span>
+                <h2>Admin Mode</h2>
+                <p>Open the admin area. An administrator account is required.</p>
+            </a>
+        </nav>
+
+        <p id="mode-error" role="status" aria-live="polite"></p>
+        <a id="logout-link" href="login.html">Log out</a>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-client.js"></script>
+    <script>
+        const welcomeHeading = document.getElementById("welcome-heading");
+        const modeError = document.getElementById("mode-error");
+
+        document.getElementById("logout-link").addEventListener("click", async (event) => {
+            event.preventDefault();
+            try {
+                const { error } = await window.siteSupabase.auth.signOut();
+                if (error) {
+                    throw error;
+                }
+                window.location.href = "login.html";
+            } catch (error) {
+                modeError.textContent = "Could not log out. Please try again.";
+                console.error("Could not sign out:", error);
+            }
+        });
+
+        (async () => {
+            try {
+                const { data: { session }, error: authError } = await window.siteSupabase.auth.getSession();
+                if (authError) {
+                    throw authError;
+                }
+                const user = session && session.user;
+                if (!user) {
+                    window.location.replace("login.html");
+                    return;
+                }
+
+                const { data: profile, error } = await window.siteSupabase
+                    .from("profiles")
+                    .select("name")
+                    .eq("id", user.id)
+                    .maybeSingle();
+                if (error) {
+                    throw error;
+                }
+                if (!profile) {
+                    throw new Error("Your shared profile is not available yet. Confirm your email or contact the site administrator.");
+                }
+                welcomeHeading.textContent = `Welcome, ${profile.name}!`;
+            } catch (error) {
+                modeError.textContent = error.message ||
+                    "Unable to load your account. Please log in again.";
+                console.error("Could not load signed-in account:", error);
+            }
+        })();
+    </script>
+</body>
+
+</html>

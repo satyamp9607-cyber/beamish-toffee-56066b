@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#102b3f">
+  <title>Welcome</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #172a3a;
+      --muted: #647587;
+      --accent: #167c78;
+      --accent-dark: #11635f;
+      --line: #dce6e8;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      align-items: center;
+      background:
+        radial-gradient(ellipse at 12% 18%, rgba(117, 230, 202, 0.28), transparent 30%),
+        radial-gradient(ellipse at 88% 82%, rgba(255, 176, 142, 0.25), transparent 32%),
+        linear-gradient(135deg, #102b3f 0%, #1c5360 52%, #765b75 100%);
+      background-attachment: fixed;
+      color: var(--ink);
+      display: flex;
+      font-family: "Segoe UI", Arial, sans-serif;
+      justify-content: center;
+      margin: 0;
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    main {
+      background: #fff;
+      border: 1px solid rgba(220, 230, 232, 0.9);
+      border-radius: 28px;
+      box-shadow: 0 24px 70px rgba(31, 57, 67, 0.18);
+      max-width: 680px;
+      padding: clamp(32px, 7vw, 64px);
+      text-align: center;
+      width: 100%;
+    }
+
+    .welcome-mark {
+      align-items: center;
+      background: #e7f3f0;
+      border-radius: 16px;
+      color: var(--accent-dark);
+      display: flex;
+      font-size: 1.3rem;
+      font-weight: 800;
+      height: 54px;
+      justify-content: center;
+      letter-spacing: -0.04em;
+      margin: 0 auto 28px;
+      width: 54px;
+    }
+
+    .eyebrow {
+      color: var(--accent);
+      font-size: 0.75rem;
+      font-weight: 750;
+      letter-spacing: 0.14em;
+      margin: 0 0 10px;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      font-size: clamp(2.2rem, 8vw, 3.2rem);
+      letter-spacing: -0.055em;
+      line-height: 1.08;
+      margin: 0;
+    }
+
+    .intro {
+      color: var(--muted);
+      line-height: 1.65;
+      margin: 16px auto 30px;
+      max-width: 460px;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: center;
+    }
+
+    .button {
+      align-items: center;
+      border: 1px solid transparent;
+      border-radius: 10px;
+      display: inline-flex;
+      font: inherit;
+      font-weight: 700;
+      justify-content: center;
+      min-height: 48px;
+      min-width: 160px;
+      padding: 12px 20px;
+      text-decoration: none;
+      transition: background 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+    }
+
+    .button:hover {
+      transform: translateY(-1px);
+    }
+
+    .button-primary {
+      background: var(--accent);
+      box-shadow: 0 8px 18px rgba(22, 124, 120, 0.18);
+      color: #fff;
+    }
+
+    .button-primary:hover {
+      background: var(--accent-dark);
+    }
+
+    .button-secondary {
+      background: #f3f6f5;
+      border-color: var(--line);
+      color: var(--ink);
+    }
+
+    .button-secondary:hover {
+      background: #eaf1ef;
+    }
+
+    a:focus-visible {
+      outline: 3px solid #e28b65;
+      outline-offset: 3px;
+    }
+
+    @media (max-width: 420px) {
+      .actions {
+        flex-direction: column;
+      }
+
+      .button {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main>
+    <div class="welcome-mark" aria-hidden="true">Hi</div>
+    <p class="eyebrow">Your space, your pace</p>
+    <h1>Welcome</h1>
+    <p class="intro">Sign in to continue to your account, or create an account to get started.</p>
+    <nav class="actions" aria-label="Account options">
+      <a class="button button-primary" href="login.html">Login</a>
+      <a class="button button-secondary" href="Registration.html">Create an account</a>
+    </nav>
+  </main>
+</body>
+
+</html>

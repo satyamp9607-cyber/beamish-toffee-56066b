@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <style>
+        :root {
+            --ink: #172a3a;
+            --muted: #647587;
+            --accent: #167c78;
+            --accent-dark: #11635f;
+            --line: #dce6e8;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            background: radial-gradient(ellipse at 12% 18%, rgba(117, 230, 202, 0.28), transparent 30%),
+                radial-gradient(ellipse at 88% 82%, rgba(255, 176, 142, 0.25), transparent 32%),
+                linear-gradient(135deg, #102b3f 0%, #1c5360 52%, #765b75 100%);
+            background-attachment: fixed;
+            color: var(--ink);
+            font-family: "Segoe UI", Arial, sans-serif;
+            margin: 0;
+            min-height: 100vh;
+        }
+
+        main {
+            margin: 0 auto;
+            max-width: 1320px;
+            padding: 36px 24px;
+        }
+
+        #admin-login {
+            background: #fff;
+            border: 1px solid rgba(220, 230, 232, 0.9);
+            border-radius: 24px;
+            box-shadow: 0 24px 70px rgba(31, 57, 67, 0.12);
+            margin: 0 auto;
+            max-width: 480px;
+            padding: clamp(26px, 6vw, 42px);
+        }
+
+        .eyebrow {
+            color: var(--accent);
+            font-size: 0.75rem;
+            font-weight: 750;
+            letter-spacing: 0.14em;
+            margin: 0 0 10px;
+            text-transform: uppercase;
+        }
+
+        h1 {
+            letter-spacing: -0.045em;
+            margin-top: 0;
+        }
+
+        #admin-login label,
+        #admin-email,
+        #admin-password {
+            display: block;
+            width: 100%;
+        }
+
+        #admin-email,
+        #admin-password {
+            background: #fbfdfc;
+            border: 1px solid #cbd9dc;
+            border-radius: 10px;
+            color: var(--ink);
+            font: inherit;
+            margin-top: 6px;
+            min-height: 48px;
+            padding: 11px 13px;
+        }
+
+        #admin-password:focus,
+        #search:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 4px rgba(22, 124, 120, 0.12);
+            outline: none;
+        }
+
+        button {
+            background: var(--accent);
+            border: 1px solid transparent;
+            border-radius: 10px;
+            color: #fff;
+            cursor: pointer;
+            font: inherit;
+            font-weight: 700;
+            min-height: 44px;
+            padding: 10px 15px;
+            transition: background 160ms ease, transform 160ms ease;
+        }
+
+        button:hover {
+            background: var(--accent-dark);
+            transform: translateY(-1px);
+        }
+
+        .delete-user-button {
+            background: #a63e38;
+            display: block;
+            margin: 12px auto 0;
+        }
+
+        .delete-user-button:hover {
+            background: #84322e;
+        }
+
+        .delete-user-button,
+        #confirm-delete-button {
+            background: #a63e38;
+        }
+
+        .delete-user-button:hover,
+        #confirm-delete-button:hover {
+            background: #84322e;
+        }
+
+        #delete-account-dialog {
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            box-shadow: 0 24px 70px rgba(31, 57, 67, 0.25);
+            color: var(--ink);
+            max-width: min(440px, calc(100% - 32px));
+            padding: 28px;
+            width: 100%;
+        }
+
+        #delete-account-dialog::backdrop {
+            background: rgba(16, 43, 63, 0.62);
+        }
+
+        #delete-account-dialog h2 {
+            margin-top: 0;
+        }
+
+        #delete-account-dialog p {
+            line-height: 1.5;
+        }
+
+        #delete-account-dialog label,
+        #delete-admin-password {
+            display: block;
+            width: 100%;
+        }
+
+        #delete-admin-password {
+            border: 1px solid #cbd9dc;
+            border-radius: 10px;
+            color: var(--ink);
+            font: inherit;
+            margin-top: 7px;
+            min-height: 46px;
+            padding: 10px 12px;
+        }
+
+        #delete-error {
+            color: #a63e38;
+            min-height: 1.25em;
+        }
+
+        .dialog-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        #cancel-delete-button {
+            background: #f3f6f5;
+            border-color: var(--line);
+            color: var(--ink);
+        }
+
+        a {
+            color: var(--accent-dark);
+            font-weight: 650;
+            text-underline-offset: 3px;
+        }
+
+        #admin-login button {
+            margin: 16px 0 6px;
+        }
+
+        #login-error {
+            color: #a63e38;
+            min-height: 1.25em;
+        }
+
+        .dashboard-header,
+        .toolbar {
+            align-items: center;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            justify-content: space-between;
+        }
+
+        .dashboard-header {
+            background: #fff;
+            border: 1px solid var(--line);
+            border-radius: 22px;
+            box-shadow: 0 12px 35px rgba(31, 57, 67, 0.06);
+            margin-bottom: 18px;
+            padding: 24px 28px;
+        }
+
+        .dashboard-header h1 {
+            font-size: clamp(1.8rem, 5vw, 2.4rem);
+            margin-bottom: 6px;
+        }
+
+        .dashboard-header p {
+            color: var(--muted);
+            margin: 0;
+        }
+
+        .dashboard-actions {
+            align-items: center;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .dashboard-actions button {
+            background: #f3f6f5;
+            border-color: var(--line);
+            color: var(--ink);
+        }
+
+        .dashboard-actions button:hover {
+            background: #e9f0ee;
+        }
+
+        .notice,
+        .summary,
+        .table-panel {
+            background: #fff;
+            border: 1px solid var(--line);
+            border-radius: 16px;
+        }
+
+        .notice {
+            border-left: 4px solid #d58b54;
+            color: #71553f;
+            line-height: 1.55;
+            margin-bottom: 18px;
+            padding: 14px 18px;
+        }
+
+        .summary {
+            color: var(--muted);
+            margin-bottom: 26px;
+            padding: 22px 24px;
+        }
+
+        .summary strong {
+            color: var(--ink);
+            display: block;
+            font-size: 2.2rem;
+            letter-spacing: -0.04em;
+            margin-top: 8px;
+        }
+
+        .toolbar {
+            margin-bottom: 14px;
+        }
+
+        .toolbar h2 {
+            letter-spacing: -0.03em;
+            margin: 0 auto 0 0;
+        }
+
+        .toolbar label {
+            color: var(--muted);
+            font-size: 0.9rem;
+            font-weight: 650;
+        }
+
+        #search {
+            background: #fff;
+            border: 1px solid #cbd9dc;
+            border-radius: 10px;
+            color: var(--ink);
+            font: inherit;
+            max-width: 420px;
+            min-width: 220px;
+            padding: 11px 13px;
+            width: 100%;
+        }
+
+        .table-panel {
+            overflow-x: auto;
+            box-shadow: 0 12px 35px rgba(31, 57, 67, 0.05);
+        }
+
+        table {
+            border-collapse: collapse;
+            min-width: 520px;
+            width: 100%;
+        }
+
+        th,
+        td {
+            border-bottom: 1px solid #edf1f0;
+            padding: 14px 16px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        th {
+            background: #f5f8f7;
+            color: #506273;
+            font-size: 0.78rem;
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+        }
+
+        tbody tr:hover {
+            background: #f8fbfa;
+        }
+
+        tbody tr:last-child td {
+            border-bottom: 0;
+        }
+
+        .qr-cell {
+            min-width: 240px;
+            text-align: center;
+        }
+
+        .user-name-cell {
+            font-weight: 700;
+        }
+
+        .qr-disclosure summary {
+            color: var(--accent-dark);
+            cursor: pointer;
+            font-weight: 700;
+            margin: 0 auto;
+            text-align: left;
+            width: fit-content;
+        }
+
+       .qr-disclosure:not([open]) > svg,
+       .qr-disclosure:not([open]) > .qr-unavailable {
+            display: none;
+        }
+
+        .qr-cell svg {
+            display: block;
+            height: auto;
+            image-rendering: pixelated;
+            margin: 12px auto 0;
+            max-width: 200px;
+        }
+
+        .qr-unavailable {
+            color: #a63e38;
+            display: block;
+            line-height: 1.4;
+            max-width: 220px;
+        }
+
+        #status {
+            color: var(--muted);
+            min-height: 1.25em;
+        }
+
+        #status.error {
+            color: #a63e38;
+        }
+
+        @media (max-width: 600px) {
+            main {
+                padding: 22px 14px;
+            }
+
+            .dashboard-header {
+                align-items: flex-start;
+                padding: 20px;
+            }
+
+            .dashboard-actions {
+                align-items: flex-start;
+                flex-direction: column;
+                gap: 12px;
+            }
+
+            .toolbar {
+                align-items: flex-start;
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .toolbar h2 {
+                margin: 0;
+            }
+
+            #search {
+                max-width: none;
+                min-width: 0;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <main id="admin-login">
+        <p class="eyebrow">Administrator access</p>
+        <h1>Admin Access</h1>
+        <p>Sign in with an administrator account to open the dashboard.</p>
+        <p class="notice">
+            Only accounts explicitly assigned administrator access in Supabase can open this dashboard.
+        </p>
+        <form id="admin-login-form">
+            <label for="admin-email">Admin email</label>
+            <input id="admin-email" type="email" autocomplete="username" required>
+            <label for="admin-password">Password</label>
+            <input id="admin-password" type="password" autocomplete="current-password" required>
+            <button type="submit">Sign in</button>
+            <p id="login-error" role="alert" aria-live="polite"></p>
+        </form>
+        <a href="login.html">Back to Login</a>
+    </main>
+
+    <main id="admin-dashboard" hidden>
+        <header class="dashboard-header">
+            <div>
+                <h1>Admin Dashboard</h1>
+                <p>View profiles shared through this site.</p>
+            </div>
+            <div class="dashboard-actions">
+                <button id="lock-admin" type="button">Lock Admin Mode</button>
+                <a href="login.html">Back to Login</a>
+            </div>
+        </header>
+
+        <p class="notice">
+            QR codes open shared profiles. Email, gender, country, city, address, name, and photo are visible to anyone
+            with a profile link.
+        </p>
+
+        <section class="summary" aria-label="Registration summary">
+            Registered people
+            <strong id="user-count">—</strong>
+        </section>
+
+        <section aria-label="Registered people">
+            <div class="toolbar">
+                <h2>Registered People</h2>
+                <label for="search">Search by name</label>
+                <input id="search" type="search" placeholder="Search names">
+            </div>
+            <p id="status" role="status" aria-live="polite"></p>
+            <div class="table-panel">
+                <table>
+                    <thead>
+                        <tr>
+                            <th scope="col">Name</th>
+                            <th scope="col">QR Code</th>
+                        </tr>
+                    </thead>
+                    <tbody id="users-table-body"></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <script src="vendor/qrcode-generator.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-client.js"></script>
+    <script>
+        const loginForm = document.getElementById("admin-login-form");
+        const loginScreen = document.getElementById("admin-login");
+        const dashboard = document.getElementById("admin-dashboard");
+        const loginError = document.getElementById("login-error");
+        const tableBody = document.getElementById("users-table-body");
+        const status = document.getElementById("status");
+        const userCount = document.getElementById("user-count");
+        const searchInput = document.getElementById("search");
+        let users = [];
+        let administratorId = "";
+
+        function showDashboard() {
+            loginScreen.hidden = true;
+            dashboard.hidden = false;
+            return loadUsers();
+        }
+
+        async function loadUsers() {
+            const { data, error } = await window.siteSupabase.rpc("list_public_profiles_for_admin");
+            if (error) {
+                status.classList.add("error");
+                status.textContent = "Could not load shared profiles.";
+                userCount.textContent = "—";
+                console.error("Could not load shared profiles:", error);
+                return;
+            }
+
+            users = data;
+            userCount.textContent = String(users.length);
+            renderUsers();
+        }
+
+        function displayValue(value) {
+            return typeof value === "string" && value.trim() ? value : "Not provided";
+        }
+
+        function createProfileQrCode(user, index) {
+            if (typeof user.id !== "string" || !user.id) {
+                throw new Error("This user does not have a profile ID.");
+            }
+
+            const profileUrl = new URL("Profile.html", window.location.href);
+            profileUrl.searchParams.set("id", user.id);
+
+            const qr = qrcode(0, "H");
+            qr.addData(profileUrl.href, "Byte");
+            qr.make();
+
+            const svgMarkup = qr.createSvgTag({
+                cellSize: 4,
+                margin: 4,
+                scalable: true,
+                title: {
+                     text: "QR code opening this user's profile", id: `qr-title-${index}` 
+                },
+                alt: {
+                    text: "QR code linking to this user's profile page",
+                    id: `qr-description-${index}`
+                }
+            });
+            const svgDocument = new DOMParser().parseFromString(svgMarkup, "image/svg+xml");
+            if (svgDocument.querySelector("parsererror")) {
+                throw new Error("Could not create the profile QR code.");
+            }
+            
+            return document.importNode(svgDocument.documentElement, true);
+        }
+
+        function renderUsers() {
+            const query = searchInput.value.trim().toLowerCase();
+            const matchingUsers = users.filter((user) =>
+                String(user.name || "").toLowerCase().includes(query)
+            );
+
+            tableBody.replaceChildren();
+            matchingUsers.forEach((user, index) => {
+                const row = document.createElement("tr");
+                const nameCell = document.createElement("td");
+                nameCell.className = "user-name-cell";
+                nameCell.textContent = displayValue(user.name);
+                row.appendChild(nameCell);
+
+                const qrCell = document.createElement("td");
+                qrCell.className = "qr-cell";
+                const qrDisclosure = document.createElement("details");
+                qrDisclosure.className = "qr-disclosure";
+                const qrSummary = document.createElement("summary");
+                qrSummary.textContent = "QR Code";
+                qrDisclosure.appendChild(qrSummary);
+                try {
+                    qrDisclosure.appendChild(createProfileQrCode(user, index));
+                } catch (error) {
+                    const qrError = document.createElement("span");
+                    qrError.className = "qr-unavailable";
+                    qrError.textContent = "Could not create a QR code for these details.";
+                    qrDisclosure.appendChild(qrError);
+                    console.error("Could not create profile QR code:", error);
+                }
+                qrCell.appendChild(qrDisclosure);
+
+                const deleteButton = document.createElement("button");
+                deleteButton.className = "delete-user-button";
+                deleteButton.type = "button";
+                deleteButton.textContent = "Delete account";
+                deleteButton.disabled = user.id === administratorId;
+                deleteButton.setAttribute("aria-label", `Delete account for ${displayValue(user.name)}`);
+                deleteButton.addEventListener("click", async () => {
+                    if (!window.confirm(`Permanently delete the account for ${displayValue(user.name)}? This cannot be undone.`)) {
+                        return;
+                    }
+
+                    deleteButton.disabled = true;
+                    try {
+                        const { data: profile, error: profileError } = await window.siteSupabase
+                            .from("profiles")
+                            .select("photo_path")
+                            .eq("id", user.id)
+                            .maybeSingle();
+                        if (profileError) {
+                            throw profileError;
+                        }
+                        if (profile && profile.photo_path) {
+                            const { error: photoError } = await window.siteSupabase.storage
+                                .from("profile-photos")
+                                .remove([profile.photo_path]);
+                            if (photoError) {
+                                throw photoError;
+                            }
+                        }
+
+                        const { error } = await window.siteSupabase.rpc(
+                            "delete_account_as_admin",
+                            { target_user_id: user.id }
+                        );
+                        if (error) {
+                            throw error;
+                        }
+                        await loadUsers();
+                        status.textContent = "Account deleted successfully.";
+                    } catch (error) {
+                        deleteButton.disabled = false;
+                        status.classList.add("error");
+                        status.textContent = error.message || "Could not delete this account.";
+                        console.error("Could not delete registered account:", error);
+                    }
+                });
+                qrCell.appendChild(deleteButton);
+                row.appendChild(qrCell);
+                tableBody.appendChild(row);
+            });
+
+            status.classList.remove("error");
+            status.textContent = matchingUsers.length
+                ? `Showing ${matchingUsers.length} of ${users.length} shared profiles.`
+                : users.length
+                    ? "No registrations match your search."
+                    : "No profiles are available yet.";
+        }
+
+        loginForm.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            loginError.textContent = "";
+
+            const email = document.getElementById("admin-email").value.trim().toLowerCase();
+            const password = document.getElementById("admin-password").value;
+            try {
+                const { data, error } = await window.siteSupabase.auth.signInWithPassword({ email, password });
+                if (error) {
+                    throw error;
+                }
+
+                const { data: adminRecord, error: adminError } = await window.siteSupabase
+                    .from("admin_users")
+                    .select("user_id")
+                    .eq("user_id", data.user.id)
+                    .maybeSingle();
+                if (adminError) {
+                    throw adminError;
+                }
+                if (!adminRecord) {
+                    await window.siteSupabase.auth.signOut();
+                    loginError.textContent = "This account does not have administrator access.";
+                    return;
+                }
+
+                administratorId = data.user.id;
+                loginForm.reset();
+                await showDashboard();
+            } catch (error) {
+                loginError.textContent = error.message || "Could not sign in to the admin dashboard.";
+                console.error("Could not sign in as administrator:", error);
+            }
+        });
+
+        document.getElementById("lock-admin").addEventListener("click", async () => {
+            try {
+                const { error } = await window.siteSupabase.auth.signOut();
+                if (error) {
+                    throw error;
+                }
+                tableBody.replaceChildren();
+                users = [];
+                userCount.textContent = "—";
+                searchInput.value = "";
+                dashboard.hidden = true;
+                loginScreen.hidden = false;
+                loginError.textContent = "";
+                document.getElementById("admin-email").focus();
+            } catch (error) {
+                status.classList.add("error");
+                status.textContent = "Could not lock the admin dashboard. Please try again.";
+                console.error("Could not sign out administrator:", error);
+            }
+        });
+
+        searchInput.addEventListener("input", renderUsers);
+
+        loginForm.addEventListener("reset", () => {
+            loginError.textContent = "";
+        });
+    </script>
+</body>
+
+</html>
