@@ -7,7 +7,10 @@ use; never put a `service_role` or secret key in this site.
 ## 1. Create the shared profile schema
 
 In Supabase, open **SQL Editor**, create a query, paste in `supabase-setup.sql`,
-and run it.
+and run it. This also creates the private `student_academic_records` table used
+by User Mode. It allows each signed-in student to read and add their own
+records, but not update or delete existing entries. When applying the update
+to an existing site, run the full setup SQL again.
 
 ## 2. Configure email confirmation redirects
 
@@ -35,6 +38,10 @@ registration, email confirmation, login, and a QR scan from another device.
 Profiles are not exposed until the account email is confirmed. QR profiles
 publicly show name, photo, email, gender, country, city, and address. Phone
 number is kept out of the QR profile.
+
+Education records are separate from public profiles and are visible only to
+their owner. Updates and semester/year progress are saved as new snapshots so
+older academic records remain available in the history.
 
 Accounts previously saved in this browser's `localStorage` are not migrated;
 they must register again to use shared Supabase login and profiles. This
