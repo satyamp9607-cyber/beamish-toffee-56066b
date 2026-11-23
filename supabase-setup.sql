@@ -12,6 +12,18 @@ create table if not exists public.profiles (
     created_at timestamptz not null default now()
 );
 
+create table if not exists public.student_academic_records (
+    id uuid primary key default gen_random_uuid(),
+    user_id uuid not null references auth.users (id) on delete cascade,
+    level text not null check (level in ('junior', 'graduation')),
+    details jsonb not null,
+    event_type text not null,
+    created_at timestamptz not null default now()
+);
+
+create index if not exists student_academic_records_user_created_idx
+    on public.student_academic_records (user_id, created_at desc);
+
 alter table public.profiles
     add column if not exists phone text not null default '';
 
@@ -21,9 +33,24 @@ create table if not exists public.admin_users (
 
 alter table public.profiles enable row level security;
 alter table public.admin_users enable row level security;
+alter table public.student_academic_records enable row level security;
 
 grant select, insert, update, delete on public.profiles to authenticated;
 grant select on public.admin_users to authenticated;
+revoke all on public.student_academic_records from anon, public, authenticated;
+grant select, insert on public.student_academic_records to authenticated;
+
+drop policy if exists "Owners read own academic records" on public.student_academic_records;
+create policy "Owners read own academic records"
+    on public.student_academic_records for select
+    to authenticated
+    using (user_id = (select auth.uid()));
+
+drop policy if exists "Owners insert own academic records" on public.student_academic_records;
+create policy "Owners insert own academic records"
+    on public.student_academic_records for insert
+    to authenticated
+    with check (user_id = (select auth.uid()));
 
 create or replace function public.is_site_admin()
 returns boolean
@@ -181,6 +208,22 @@ drop trigger if exists sync_auth_profile on auth.users;
 create trigger sync_auth_profile
     after insert or update on auth.users
     for each row execute function public.sync_auth_profile();
+
+insert into public.profiles (
+    id, name, email, gender, country, city, address, phone, is_public
+)
+select
+    u.id,
+    coalesce(u.raw_user_meta_data ->> 'name', ''),
+    coalesce(u.email, ''),
+    coalesce(u.raw_user_meta_data ->> 'gender', ''),
+    coalesce(u.raw_user_meta_data ->> 'country', ''),
+    coalesce(u.raw_user_meta_data ->> 'city', ''),
+    coalesce(u.raw_user_meta_data ->> 'address', ''),
+    coalesce(u.raw_user_meta_data ->> 'phone', ''),
+    u.email_confirmed_at is not null
+from auth.users as u
+on conflict (id) do nothing;
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (
