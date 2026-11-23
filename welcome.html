@@ -38,7 +38,7 @@
       border: 1px solid rgba(220, 230, 232, 0.9);
       border-radius: 28px;
       box-shadow: 0 24px 70px rgba(31, 57, 67, 0.12);
-      max-width: 620px;
+      max-width: 860px;
       padding: clamp(32px, 7vw, 64px);
       text-align: left;
       width: 100%;
@@ -165,6 +165,134 @@
       background: #84322e;
     }
 
+    .education-workflow {
+      border-top: 1px solid #edf1f0;
+      margin-top: 28px;
+      padding-top: 24px;
+    }
+
+    .education-workflow h2 {
+      font-size: 1.35rem;
+      margin: 0 0 8px;
+    }
+
+    .education-workflow p,
+    .education-workflow .muted {
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    .workflow-card,
+    .semester-card {
+      background: #fbfdfc;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      margin: 14px 0;
+      padding: 18px;
+    }
+
+    .workflow-actions,
+    .form-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .education-workflow button {
+      background: var(--accent);
+      border: 0;
+      border-radius: 9px;
+      color: #fff;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 700;
+      min-height: 42px;
+      padding: 10px 14px;
+    }
+
+    .education-workflow button:hover {
+      background: var(--accent-dark);
+    }
+
+    .education-workflow button.secondary {
+      background: #eef4f2;
+      color: var(--ink);
+    }
+
+    .education-workflow button.secondary:hover {
+      background: #dfece8;
+    }
+
+    .education-workflow label {
+      color: #34495a;
+      display: block;
+      font-size: 0.9rem;
+      font-weight: 650;
+      margin: 14px 0 6px;
+    }
+
+    .education-workflow input,
+    .education-workflow select,
+    .education-workflow textarea {
+      background: #fbfdfc;
+      border: 1px solid #cbd9dc;
+      border-radius: 9px;
+      color: var(--ink);
+      font: inherit;
+      min-height: 42px;
+      padding: 9px 11px;
+      width: 100%;
+    }
+
+    .education-workflow textarea {
+      min-height: 90px;
+      resize: vertical;
+    }
+
+    .education-workflow input:focus,
+    .education-workflow select:focus,
+    .education-workflow textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(22, 124, 120, 0.12);
+      outline: none;
+    }
+
+    .workflow-grid {
+      display: grid;
+      gap: 0 16px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .workflow-message {
+      color: #a63e38;
+      min-height: 1.4em;
+    }
+
+    .record-history {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .semester-card.locked {
+      background: #f3f5f4;
+      color: #8a9694;
+      opacity: 0.58;
+    }
+
+    .semester-card summary {
+      cursor: pointer;
+      font-weight: 750;
+    }
+
+    .semester-card.current {
+      border: 2px solid var(--accent);
+    }
+
+    .semester-card.locked summary {
+      cursor: not-allowed;
+    }
+
     #delete-error {
       color: #a63e38;
       min-height: 1.3em;
@@ -175,6 +303,10 @@
         align-items: flex-start;
         flex-direction: column;
       }
+
+      .workflow-grid {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -184,7 +316,15 @@
     <div class="welcome-mark" aria-hidden="true">W</div>
     <p class="eyebrow">You are signed in</p>
     <h1 id="welcome-heading">Welcome!</h1>
-    <p>Your account is ready. Make yourself at home.</p>
+    <p>Your account is ready. Manage your education details and academic progress below.</p>
+    <section class="education-workflow" aria-labelledby="education-heading">
+      <h2 id="education-heading">Education details</h2>
+      <p>Keep your study history and semester results together. Previous entries are preserved when you make changes.</p>
+      <div id="education-content" aria-live="polite">
+        <p>Verifying your account and checking for education records…</p>
+      </div>
+      <p id="education-message" class="workflow-message" role="status" aria-live="polite"></p>
+    </section>
     <div class="welcome-actions">
       <a class="primary-link" href="Mode.html">Choose another mode</a>
       <a id="logout-link" href="login.html">Log out</a>
@@ -207,7 +347,581 @@
     const welcomeHeading = document.getElementById("welcome-heading");
     const deleteForm = document.getElementById("delete-account-form");
     const deleteError = document.getElementById("delete-error");
+    const educationContent = document.getElementById("education-content");
+    const educationMessage = document.getElementById("education-message");
     let signedInUserId = "";
+    let records = [];
+    let draft = null;
+    let updateCategory = "";
+
+    function escapeHtml(value) {
+      return String(value == null ? "" : value).replace(/[&<>"']/g, (character) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      })[character]);
+    }
+
+    function currentAcademicYear() {
+      const now = new Date();
+      const startYear = now.getMonth() >= 5 ? now.getFullYear() : now.getFullYear() - 1;
+      return `${startYear}-${startYear + 1}`;
+    }
+
+    function academicYearStart() {
+      return Number(currentAcademicYear().slice(0, 4));
+    }
+
+    function latestRecord() {
+      return records.length ? records[0] : null;
+    }
+
+    function latestDetails() {
+      const record = latestRecord();
+      return record ? record.details : null;
+    }
+
+    function showWorkflowError(error) {
+      educationMessage.textContent = error.message || "Could not save your education details. Please try again.";
+      console.error("Could not update education records:", error);
+    }
+
+    function showWorkflowMessage(text) {
+      educationMessage.textContent = text || "";
+    }
+
+    function button(action, label, secondary) {
+      return `<button type="button" data-action="${escapeHtml(action)}"${secondary ? ' class="secondary"' : ""}>${escapeHtml(label)}</button>`;
+    }
+
+    function recordSummary(record) {
+      const details = record.details || {};
+      const levelName = record.level === "graduation" ? "Graduation" : "Junior college";
+      const status = details.standard ? `, Std. ${escapeHtml(details.standard)}` :
+        details.currentSemester ? `, Semester ${escapeHtml(details.currentSemester)}` : "";
+      return `<p><strong>${levelName}${status}</strong>${details.course ? ` — ${escapeHtml(details.course)}` : ""}</p>`;
+    }
+
+    function renderHome() {
+      showWorkflowMessage("");
+      const record = latestRecord();
+      if (!record) {
+        renderCollegeChoice();
+        return;
+      }
+
+      educationContent.innerHTML = `
+        <div class="workflow-card">
+          <p>We found ${records.length} saved education record${records.length === 1 ? "" : "s"}.</p>
+          ${recordSummary(record)}
+          <div class="workflow-actions">
+            ${button("update", "Yes, update my details")}
+            ${button("view-history", "No, view saved records", true)}
+            ${record.level === "graduation" ? button("progress", "Continue to next semester/year", true) : button("progress", "Continue to next year", true)}
+            ${button("new-level", "Start another education level", true)}
+          </div>
+        </div>`;
+    }
+
+    function renderHistory() {
+      educationContent.innerHTML = `
+        <div class="workflow-card">
+          <h3>Saved education history</h3>
+          <p class="record-history">These records are kept when you update or progress your studies.</p>
+          ${records.map((record, index) => `
+            <details class="semester-card">
+              <summary>Record ${records.length - index} · ${escapeHtml(new Date(record.created_at).toLocaleDateString())}</summary>
+              ${recordSummary(record)}
+              <p>${escapeHtml(JSON.stringify(record.details, null, 2))}</p>
+            </details>`).join("")}
+          <div class="workflow-actions">${button("home", "Back", true)} ${button("update", "Update my details")}</div>
+        </div>`;
+    }
+
+    function renderCollegeChoice() {
+      educationContent.innerHTML = `
+        <div class="workflow-card">
+          <p>Are you currently in school or college?</p>
+          <div class="workflow-actions">
+            ${button("school", "School")}
+            ${button("college", "College", true)}
+          </div>
+        </div>`;
+    }
+
+    function renderCollegeLevel() {
+      educationContent.innerHTML = `
+        <div class="workflow-card">
+          <p>Which college level are you in?</p>
+          <div class="workflow-actions">
+            ${button("junior", "Junior college")}
+            ${button("graduation", "Graduation", true)}
+            ${button("home", "Back", true)}
+          </div>
+        </div>`;
+    }
+
+    function inputField(name, label, value, type, options) {
+      const safeValue = escapeHtml(value == null ? "" : value);
+      if (options && options.length) {
+        return `<div><label for="field-${name}">${label}</label><select id="field-${name}" name="${name}" required>${options.map((option) =>
+          `<option value="${escapeHtml(option)}"${String(value) === String(option) ? " selected" : ""}>${escapeHtml(option)}</option>`
+        ).join("")}</select></div>`;
+      }
+      if (type === "textarea") {
+        return `<div><label for="field-${name}">${label}</label><textarea id="field-${name}" name="${name}" required>${safeValue}</textarea></div>`;
+      }
+      return `<div><label for="field-${name}">${label}</label><input id="field-${name}" name="${name}" type="${type || "text"}" value="${safeValue}" required${type === "number" ? ' step="any"' : ""}></div>`;
+    }
+
+    function renderJuniorForm(details) {
+      const isUpdate = Boolean(details);
+      const data = details || {};
+      educationContent.innerHTML = `
+        <div class="workflow-card">
+          <h3>${isUpdate ? "Update junior-college details" : "Junior-college details"}</h3>
+          <form id="junior-form">
+            <div class="workflow-grid">
+              ${inputField("stream", "Stream (for example, Science or Commerce)", data.stream)}
+              ${inputField("standard", "Current standard", data.standard || "11th", null, ["11th", "12th"])}
+              ${inputField("subjectsText", "Subjects (one subject per line)", (data.subjects || []).join("\\n"), "textarea")}
+              ${inputField("annualFees", "Total college fees for this year", data.annualFees, "number")}
+              ${inputField("admissionYear", "Year of admission", data.admissionYear, "number")}
+              <div><label for="academic-year">Academic year</label><input id="academic-year" value="${escapeHtml(currentAcademicYear())}" readonly></div>
+            </div>
+            <div class="workflow-actions"><button type="submit">${isUpdate ? "Save updated details" : "Save details"}</button>${button("home", "Cancel", true)}</div>
+          </form>
+        </div>`;
+    }
+
+    function renderGraduationForm() {
+      educationContent.innerHTML = `
+        <div class="workflow-card">
+          <h3>Graduation details</h3>
+          <p>Your current course year is estimated from your admission year and the current academic year (${escapeHtml(currentAcademicYear())}).</p>
+          <form id="graduation-form">
+            <div class="workflow-grid">
+              ${inputField("percentage11", "11th standard percentage", "", "number")}
+              ${inputField("passingYear11", "11th standard passing year", "", "number")}
+              ${inputField("percentage12", "12th standard percentage", "", "number")}
+              ${inputField("passingYear12", "12th standard passing year", "", "number")}
+              ${inputField("course", "Selected course", "")}
+              ${inputField("semestersPerYear", "Semesters in one year", "", "number")}
+              ${inputField("courseYears", "Course duration in years", "", "number")}
+              ${inputField("admissionYear", "Graduation admission year", "", "number")}
+              ${inputField("currentSemester", "Semester you are currently in", "", "number")}
+            </div>
+            <p id="course-year-estimate" class="muted" aria-live="polite"></p>
+            <div class="workflow-actions"><button type="submit">Continue</button>${button("home", "Cancel", true)}</div>
+          </form>
+        </div>`;
+      educationContent.querySelector("#graduation-form").addEventListener("input", updateCourseYearEstimate);
+    }
+
+    function updateCourseYearEstimate() {
+      const form = educationContent.querySelector("#graduation-form");
+      const admissionYear = Number(form.elements.admissionYear.value);
+      const courseYears = Number(form.elements.courseYears.value);
+      const estimate = document.getElementById("course-year-estimate");
+      if (!admissionYear || !courseYears) {
+        estimate.textContent = "";
+        return;
+      }
+      const year = Math.min(courseYears, Math.max(1, academicYearStart() - admissionYear + 1));
+      estimate.textContent = `Based on the admission year, this is approximately course year ${year} of ${courseYears}.`;
+    }
+
+    function parseSubjects(value) {
+      return value.split(/\r?\n/).map((line) => {
+        const [name, credits] = line.split("|").map((part) => part.trim());
+        return { name, credits: Number(credits) };
+      }).filter((subject) => subject.name);
+    }
+
+    function renderPriorCgpaEntry() {
+      const missingSemester = draft.semesters.find((semester) =>
+        semester.number < draft.currentSemester && semester.cgpa === null
+      );
+      if (!missingSemester) {
+        renderCurrentSemesterEditor();
+        return;
+      }
+      educationContent.innerHTML = `
+        <div class="workflow-card">
+          <h3>Previous semester results</h3>
+          <p>Enter your Semester ${missingSemester.number} CGPA before continuing. These results remain in your record.</p>
+          <form id="prior-cgpa-form">
+            ${inputField("cgpa", `Semester ${missingSemester.number} CGPA (0–10)`, "", "number")}
+            <div class="workflow-actions"><button type="submit">Save and continue</button>${button("home", "Cancel", true)}</div>
+          </form>
+        </div>`;
+      educationContent.querySelector('[name="cgpa"]').min = "0";
+      educationContent.querySelector('[name="cgpa"]').max = "10";
+    }
+
+    function semesterCards() {
+      return draft.semesters.map((semester) => {
+        const subjectList = semester.subjects.length ?
+          `<ul>${semester.subjects.map((subject) => `<li>${escapeHtml(subject.name)} — ${escapeHtml(subject.credits)} credits</li>`).join("")}</ul>` :
+          "<p>No subject details entered yet.</p>";
+        const content = `${subjectList}<p>CGPA: ${semester.cgpa == null ? "Not entered yet" : escapeHtml(semester.cgpa)}</p>`;
+        if (semester.number < draft.currentSemester) {
+          return `<details class="semester-card"><summary>Sem ${semester.number}</summary>${content}</details>`;
+        }
+        if (semester.number === draft.currentSemester) {
+          return `<section class="semester-card current"><strong>Sem ${semester.number} · Current semester</strong>${content}</section>`;
+        }
+        return `<div class="semester-card locked" aria-disabled="true"><strong>Sem ${semester.number} · Locked</strong><p>Complete the previous semester to unlock this section.</p></div>`;
+      }).join("");
+    }
+
+    function renderCurrentSemesterEditor() {
+      const semester = draft.semesters[draft.currentSemester - 1];
+      const subjectsText = semester.subjects.map((subject) => `${subject.name} | ${subject.credits}`).join("\n");
+      educationContent.innerHTML = `
+        <div class="workflow-card">
+          <h3>Course year ${draft.currentCourseYear} · Semester ${draft.currentSemester} of ${draft.totalSemesters}</h3>
+          <p>Enter subjects one per line as <strong>Subject name | credits</strong>. Earlier semesters are read-only; later semesters stay locked until you enter the previous CGPA.</p>
+          <div>${semesterCards()}</div>
+          ${semester.subjects.length ? `
+            <form id="current-cgpa-form">
+              ${inputField("cgpa", `Semester ${draft.currentSemester} CGPA (0–10)`, semester.cgpa == null ? "" : semester.cgpa, "number")}
+              <div class="workflow-actions"><button type="submit">${draft.currentSemester === draft.totalSemesters ? "Complete course" : "Save CGPA and unlock next semester"}</button>${button("home", "Save for later", true)}</div>
+            </form>` : `
+            <form id="current-subjects-form">
+              ${inputField("subjectCount", "Number of subjects this semester", semester.subjects.length || "", "number")}
+              ${inputField("subjectsText", "Subjects and credits (one per line: Subject | credits)", subjectsText, "textarea")}
+              <div class="workflow-actions"><button type="submit">Save semester subjects</button>${button("home", "Cancel", true)}</div>
+            </form>`}
+        </div>`;
+      const cgpa = educationContent.querySelector('[name="cgpa"]');
+      if (cgpa) {
+        cgpa.min = "0";
+        cgpa.max = "10";
+      }
+    }
+
+    async function saveSnapshot(details, eventType) {
+      showWorkflowMessage("");
+      const { data, error } = await window.siteSupabase
+        .from("student_academic_records")
+        .insert({ user_id: signedInUserId, level: details.level, details, event_type: eventType })
+        .select("*")
+        .single();
+      if (error) {
+        throw error;
+      }
+      records.unshift(data);
+      renderHome();
+    }
+
+    function updateFieldConfig(details, category) {
+      if (details.level === "junior") {
+        return category === "study"
+          ? [["stream", "Stream"], ["standard", "Current standard", "select:11th,12th"], ["admissionYear", "Year of admission", "number"]]
+          : [["subjectsText", "Subjects (one per line)", "textarea"], ["annualFees", "Total annual college fees", "number"]];
+      }
+      if (category === "marks") {
+        return [["percentage11", "11th standard percentage", "number"], ["passingYear11", "11th passing year", "number"], ["percentage12", "12th standard percentage", "number"], ["passingYear12", "12th passing year", "number"]];
+      }
+      if (category === "semester") {
+        return [
+          ["subjectCount", "Number of subjects in this semester", "number"],
+          ["subjectsText", `Semester ${details.currentSemester} subjects (Subject | credits, one per line)`, "textarea"]
+        ];
+      }
+      return [["course", "Selected course"], ["semestersPerYear", "Semesters per year", "number"], ["courseYears", "Course duration in years", "number"], ["admissionYear", "Graduation admission year", "number"]];
+    }
+
+    function renderUpdateCategory(details) {
+      const categories = details.level === "junior"
+        ? [["study", "Stream, standard, or admission year"], ["subjects", "Subjects or annual fees"]]
+        : [["course", "Course, duration, or admission year"], ["marks", "11th/12th marks and passing years"], ["semester", "Current semester subjects and credits"]];
+      educationContent.innerHTML = `
+        <div class="workflow-card">
+          <h3>Which information would you like to update?</h3>
+          <div class="workflow-actions">${categories.map(([key, label]) => button(`edit-${key}`, label, true)).join("")}</div>
+          ${button("home", "Cancel", true)}
+        </div>`;
+    }
+
+    function renderUpdateForm(category) {
+      const details = JSON.parse(JSON.stringify(latestDetails()));
+      const fields = updateFieldConfig(details, category);
+      const formFields = fields.map(([name, label, type]) => {
+        let value = details[name];
+        if (name === "subjectsText") {
+          value = category === "semester"
+            ? (details.semesters[details.currentSemester - 1].subjects || []).map((subject) => `${subject.name} | ${subject.credits}`).join("\n")
+            : (details.subjects || []).join("\n");
+        } else if (name === "subjectCount") {
+          value = (details.semesters[details.currentSemester - 1].subjects || []).length || "";
+        }
+        const options = type && type.startsWith("select:")
+          ? type.slice(7).split(",")
+          : null;
+        return inputField(name, label, value, options ? null : type, options);
+      }).join("");
+      educationContent.innerHTML = `
+        <div class="workflow-card">
+          <h3>Update ${escapeHtml(category === "marks" ? "school marks" : category === "semester" ? "semester subjects" : "study details")}</h3>
+          <form id="update-form" data-category="${escapeHtml(category)}">
+            <div class="workflow-grid">${formFields}</div>
+            <div class="workflow-actions"><button type="submit">Save as a new record</button>${button("update", "Choose another detail", true)}</div>
+          </form>
+        </div>`;
+    }
+
+    educationContent.addEventListener("click", async (event) => {
+      const target = event.target.closest("[data-action]");
+      if (!target) {
+        return;
+      }
+      const action = target.dataset.action;
+      showWorkflowMessage("");
+      try {
+        if (action === "home") {
+          renderHome();
+        } else if (action === "school") {
+          educationContent.innerHTML = `<div class="workflow-card"><h3>Sorry</h3><p>This website is currently available only to college students.</p>${button("home", "Back", true)}</div>`;
+        } else if (action === "college") {
+          renderCollegeLevel();
+        } else if (action === "junior") {
+          draft = { level: "junior" };
+          renderJuniorForm();
+        } else if (action === "graduation") {
+          draft = { level: "graduation" };
+          renderGraduationForm();
+        } else if (action === "view-history") {
+          renderHistory();
+        } else if (action === "update") {
+          renderUpdateCategory(latestDetails());
+        } else if (action.indexOf("edit-") === 0) {
+          updateCategory = action.slice(5);
+          renderUpdateForm(updateCategory);
+        } else if (action === "new-level") {
+          renderCollegeLevel();
+        } else if (action === "progress") {
+          const details = latestDetails();
+          if (details.level === "graduation") {
+            draft = JSON.parse(JSON.stringify(details));
+            draft.totalSemesters = Number(draft.courseYears) * Number(draft.semestersPerYear);
+            draft.currentCourseYear = Math.floor((draft.currentSemester - 1) / draft.semestersPerYear) + 1;
+            renderCurrentSemesterEditor();
+          } else {
+            educationContent.innerHTML = `
+              <div class="workflow-card">
+                <h3>Continue your junior-college studies</h3>
+                <p>Enter your result for Std. ${escapeHtml(details.standard)}. Your previous details will be preserved.</p>
+                <form id="junior-progress-form">
+                  ${inputField("marks", `Marks/percentage obtained in Std. ${escapeHtml(details.standard)}`, "", "number")}
+                  <div class="workflow-actions">
+                    ${details.standard === "11th" ? '<button type="submit" name="nextStep" value="year">Save and enter Std. 12</button>' : '<button type="submit" name="nextStep" value="graduation">Save and start graduation</button>'}
+                    ${button("new-level", "Start another level", true)}
+                  </div>
+                </form>
+              </div>`;
+          }
+        }
+      } catch (error) {
+        showWorkflowError(error);
+      }
+    });
+
+    educationContent.addEventListener("submit", async (event) => {
+      const form = event.target;
+      event.preventDefault();
+      showWorkflowMessage("");
+      const values = new FormData(form);
+      try {
+        if (form.id === "junior-form") {
+          const details = {
+            level: "junior",
+            stream: String(values.get("stream")).trim(),
+            standard: values.get("standard"),
+            subjects: String(values.get("subjectsText")).split(/\r?\n/).map((item) => item.trim()).filter(Boolean),
+            annualFees: Number(values.get("annualFees")),
+            admissionYear: Number(values.get("admissionYear")),
+            academicYear: currentAcademicYear(),
+            yearResults: []
+          };
+          if (!Number.isInteger(details.admissionYear) || details.admissionYear > academicYearStart()) {
+            throw new Error("Enter a valid admission year that is not in the future.");
+          }
+          if (details.admissionYear < 1900 || details.annualFees < 0 || !details.subjects.length) {
+            throw new Error("Enter a valid admission year, non-negative annual fees, and at least one subject.");
+          }
+          await saveSnapshot(details, "initial");
+        } else if (form.id === "graduation-form") {
+          const admissionYear = Number(values.get("admissionYear"));
+          const semestersPerYear = Number(values.get("semestersPerYear"));
+          const courseYears = Number(values.get("courseYears"));
+          const currentSemester = Number(values.get("currentSemester"));
+          if (![admissionYear, semestersPerYear, courseYears, currentSemester].every(Number.isInteger) ||
+              admissionYear > academicYearStart() || admissionYear < 1900 ||
+              semestersPerYear < 1 || courseYears < 1) {
+            throw new Error("Enter valid whole numbers for the course duration, semester count, admission year, and current semester.");
+          }
+          const currentCourseYear = Math.min(courseYears, Math.max(1, academicYearStart() - admissionYear + 1));
+          const firstSemester = (currentCourseYear - 1) * semestersPerYear + 1;
+          const lastSemester = currentCourseYear * semestersPerYear;
+          if (currentSemester < firstSemester || currentSemester > lastSemester) {
+            throw new Error(`Based on the admission year, your current semester should be between ${firstSemester} and ${lastSemester}.`);
+          }
+          const totalSemesters = semestersPerYear * courseYears;
+          draft = {
+            level: "graduation",
+            percentage11: Number(values.get("percentage11")),
+            passingYear11: Number(values.get("passingYear11")),
+            percentage12: Number(values.get("percentage12")),
+            passingYear12: Number(values.get("passingYear12")),
+            course: String(values.get("course")).trim(),
+            semestersPerYear,
+            courseYears,
+            admissionYear,
+            academicYear: currentAcademicYear(),
+            currentCourseYear,
+            currentSemester,
+            totalSemesters,
+            semesters: Array.from({ length: totalSemesters }, (_, index) => ({
+              number: index + 1,
+              subjects: [],
+              cgpa: null
+            }))
+          };
+          for (const key of ["percentage11", "percentage12"]) {
+            if (draft[key] < 0 || draft[key] > 100) {
+              throw new Error("11th and 12th percentages must be between 0 and 100.");
+            }
+          }
+          for (const key of ["passingYear11", "passingYear12"]) {
+            if (!Number.isInteger(draft[key]) || draft[key] < 1900 || draft[key] > academicYearStart()) {
+              throw new Error("Enter valid 11th and 12th passing years.");
+            }
+          }
+          renderPriorCgpaEntry();
+        } else if (form.id === "prior-cgpa-form") {
+          const semester = draft.semesters.find((item) => item.number < draft.currentSemester && item.cgpa === null);
+          semester.cgpa = Number(values.get("cgpa"));
+          renderPriorCgpaEntry();
+        } else if (form.id === "current-subjects-form") {
+          const subjects = parseSubjects(String(values.get("subjectsText")));
+          const subjectCount = Number(values.get("subjectCount"));
+          if (!Number.isInteger(subjectCount) || subjectCount < 1 || subjects.length !== subjectCount ||
+              subjects.some((subject) => !Number.isFinite(subject.credits) || subject.credits <= 0)) {
+            throw new Error("Enter a subject count that matches the subject list, with positive credits for each subject.");
+          }
+          if (!subjects.length) {
+            throw new Error("Enter at least one subject with a positive credit value, one per line as Subject | credits.");
+          }
+          draft.semesters[draft.currentSemester - 1].subjects = subjects;
+          await saveSnapshot(draft, "semester-details");
+          draft = JSON.parse(JSON.stringify(latestDetails()));
+          draft.totalSemesters = Number(draft.courseYears) * Number(draft.semestersPerYear);
+          draft.currentCourseYear = Math.floor((draft.currentSemester - 1) / draft.semestersPerYear) + 1;
+          renderCurrentSemesterEditor();
+        } else if (form.id === "current-cgpa-form") {
+          const cgpa = Number(values.get("cgpa"));
+          if (!Number.isFinite(cgpa) || cgpa < 0 || cgpa > 10) {
+            throw new Error("CGPA must be between 0 and 10.");
+          }
+          draft.semesters[draft.currentSemester - 1].cgpa = cgpa;
+          if (draft.currentSemester === draft.totalSemesters) {
+            await saveSnapshot(draft, "course-completed");
+            educationContent.innerHTML = `<div class="workflow-card"><h3>Congratulations!</h3><p>You have completed all ${draft.totalSemesters} semesters. Your academic history has been saved.</p>${button("home", "View records")}</div>`;
+          } else {
+            draft.currentSemester += 1;
+            draft.currentCourseYear = Math.floor((draft.currentSemester - 1) / draft.semestersPerYear) + 1;
+            await saveSnapshot(draft, "semester-completed");
+            draft = JSON.parse(JSON.stringify(latestDetails()));
+            draft.totalSemesters = Number(draft.courseYears) * Number(draft.semestersPerYear);
+            draft.currentCourseYear = Math.floor((draft.currentSemester - 1) / draft.semestersPerYear) + 1;
+            renderCurrentSemesterEditor();
+          }
+        } else if (form.id === "junior-progress-form") {
+          const marks = Number(values.get("marks"));
+          if (!Number.isFinite(marks) || marks < 0) {
+            throw new Error("Enter a valid non-negative result for the completed year.");
+          }
+          const previousDetails = JSON.parse(JSON.stringify(latestDetails()));
+          previousDetails.yearResults = previousDetails.yearResults || [];
+          previousDetails.yearResults.push({
+            standard: previousDetails.standard,
+            marks,
+            academicYear: previousDetails.academicYear
+          });
+          if (form.elements.nextStep.value === "year") {
+            previousDetails.standard = "12th";
+            previousDetails.academicYear = currentAcademicYear();
+            await saveSnapshot(previousDetails, "year-completed");
+            educationContent.innerHTML = `<div class="workflow-card"><h3>Std. 12 is ready</h3><p>Your Std. 11 result and previous record have been saved.</p>${button("home", "Continue")}</div>`;
+          } else {
+            await saveSnapshot(previousDetails, "year-completed");
+            renderGraduationForm();
+          }
+        } else if (form.id === "update-form") {
+          const details = JSON.parse(JSON.stringify(latestDetails()));
+          const category = form.dataset.category;
+          for (const [key, value] of values.entries()) {
+            if (key === "subjectsText") {
+              if (category === "semester") {
+                const subjectList = parseSubjects(String(value));
+                if (!subjectList.length || subjectList.length !== Number(values.get("subjectCount")) ||
+                    subjectList.some((subject) => !Number.isFinite(subject.credits) || subject.credits <= 0)) {
+                  throw new Error("Enter a subject count that matches the subject list, with positive credits for each subject.");
+                }
+                details.semesters[details.currentSemester - 1].subjects = subjectList;
+              } else {
+                details.subjects = String(value).split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
+              }
+            } else {
+              details[key] = key === "standard" ? value : (key === "stream" || key === "course" ? String(value).trim() : Number(value));
+            }
+          }
+          if (category === "semester") {
+            delete details.subjectCount;
+          }
+          if (details.admissionYear && (details.admissionYear > academicYearStart() || !Number.isInteger(details.admissionYear))) {
+            throw new Error("Enter a valid admission year that is not in the future.");
+          }
+          if (details.level === "junior") {
+            if (details.admissionYear < 1900 || details.annualFees < 0 || !details.subjects.length) {
+              throw new Error("Enter a valid admission year, non-negative annual fees, and at least one subject.");
+            }
+            details.academicYear = currentAcademicYear();
+          } else {
+            if (details.percentage11 < 0 || details.percentage11 > 100 ||
+                details.percentage12 < 0 || details.percentage12 > 100 ||
+                !Number.isInteger(details.passingYear11) || details.passingYear11 < 1900 ||
+                details.passingYear11 > academicYearStart() ||
+                !Number.isInteger(details.passingYear12) || details.passingYear12 < 1900 ||
+                details.passingYear12 > academicYearStart()) {
+              throw new Error("Enter valid 11th and 12th percentages (0–100) and passing years.");
+            }
+            const totalSemesters = Number(details.courseYears) * Number(details.semestersPerYear);
+            if (!Number.isInteger(totalSemesters) || totalSemesters < details.semesters.length ||
+                details.admissionYear < 1900 || details.courseYears < 1 || details.semestersPerYear < 1) {
+              throw new Error("The updated course duration must include all saved semesters and your current semester.");
+            }
+            details.totalSemesters = totalSemesters;
+            while (details.semesters.length < totalSemesters) {
+              details.semesters.push({ number: details.semesters.length + 1, subjects: [], cgpa: null });
+            }
+            details.currentCourseYear = Math.min(details.courseYears, Math.max(1, academicYearStart() - details.admissionYear + 1));
+            const firstSemester = (details.currentCourseYear - 1) * details.semestersPerYear + 1;
+            const lastSemester = details.currentCourseYear * details.semestersPerYear;
+            if (details.currentSemester < firstSemester || details.currentSemester > lastSemester) {
+              throw new Error("The changed admission details do not match your current semester. Update course information before changing the admission year.");
+            }
+          }
+          await saveSnapshot(details, "details-updated");
+        }
+      } catch (error) {
+        showWorkflowError(error);
+      }
+    });
 
     document.getElementById("logout-link").addEventListener("click", async (event) => {
       event.preventDefault();
@@ -248,8 +962,19 @@
         }
         signedInUserId = user.id;
         welcomeHeading.textContent = `Welcome, ${profile.name}!`;
+        const { data: academicRecords, error: recordsError } = await window.siteSupabase
+          .from("student_academic_records")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false });
+        if (recordsError) {
+          throw recordsError;
+        }
+        records = academicRecords || [];
+        renderHome();
       } catch (error) {
         welcomeHeading.textContent = "Unable to load your account.";
+        educationContent.textContent = error.message || "Could not verify your account or load education records.";
         console.error("Could not load signed-in account:", error);
       }
     })();
