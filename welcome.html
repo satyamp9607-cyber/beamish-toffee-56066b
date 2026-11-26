@@ -264,6 +264,38 @@
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
+    .subject-editor {
+      display: grid;
+      gap: 10px;
+      grid-column: 1 / -1;
+    }
+
+    .subject-box {
+      display: grid;
+      align-items: end;
+      gap: 10px;
+      grid-template-columns: minmax(0, 1fr) 110px auto;
+    }
+
+    .subject-box label {
+      margin-top: 0;
+    }
+
+    .subject-box input {
+      margin: 0;
+    }
+
+    .subject-box button.remove-subject {
+      background: #f3f6f5;
+      color: #a63e38;
+      min-width: 42px;
+      padding: 10px;
+    }
+
+    .subject-box button.remove-subject:hover {
+      background: #e8eeec;
+    }
+
     .workflow-message {
       color: #a63e38;
       min-height: 1.4em;
@@ -272,6 +304,40 @@
     .record-history {
       color: var(--muted);
       font-size: 0.9rem;
+    }
+
+    .details-table,
+    .subject-table {
+      border-collapse: collapse;
+      margin-top: 12px;
+      width: 100%;
+    }
+
+    .details-table th,
+    .details-table td,
+    .subject-table th,
+    .subject-table td {
+      border: 1px solid var(--line);
+      padding: 9px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .details-table th,
+    .subject-table th {
+      background: #edf4f2;
+      color: #34495a;
+      font-size: 0.85rem;
+      width: 42%;
+    }
+
+    .subject-table th {
+      width: auto;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      width: 100%;
     }
 
     .semester-card.locked {
@@ -306,6 +372,14 @@
 
       .workflow-grid {
         grid-template-columns: 1fr;
+      }
+
+      .subject-box {
+        grid-template-columns: 1fr;
+      }
+
+      .subject-box button.remove-subject {
+        width: 100%;
       }
     }
   </style>
@@ -401,7 +475,69 @@
       const levelName = record.level === "graduation" ? "Graduation" : "Junior college";
       const status = details.standard ? `, Std. ${escapeHtml(details.standard)}` :
         details.currentSemester ? `, Semester ${escapeHtml(details.currentSemester)}` : "";
-      return `<p><strong>${levelName}${status}</strong>${details.course ? ` — ${escapeHtml(details.course)}` : ""}</p>`;
+      return `
+        <div class="table-wrap">
+          <table class="details-table">
+            <tbody>
+              <tr><th>Education level</th><td>${levelName}${status}</td></tr>
+              ${details.course ? `<tr><th>Course</th><td>${escapeHtml(details.course)}</td></tr>` : ""}
+              ${details.stream ? `<tr><th>Stream</th><td>${escapeHtml(details.stream)}</td></tr>` : ""}
+              ${details.academicYear ? `<tr><th>Academic year</th><td>${escapeHtml(details.academicYear)}</td></tr>` : ""}
+            </tbody>
+          </table>
+        </div>`;
+    }
+
+    function subjectTable(subjects, cgpa) {
+      if (!subjects || !subjects.length) {
+        return "<p>No subject details entered yet.</p>";
+      }
+      return `
+        <div class="table-wrap">
+          <table class="subject-table">
+            <thead><tr><th>Subject</th><th>Credits</th></tr></thead>
+            <tbody>${subjects.map((subject) =>
+              `<tr><td>${escapeHtml(subject.name)}</td><td>${escapeHtml(subject.credits)}</td></tr>`
+            ).join("")}</tbody>
+          </table>
+          ${cgpa != null ? `<p><strong>CGPA:</strong> ${escapeHtml(cgpa)}</p>` : ""}
+        </div>`;
+    }
+
+    function educationDetailsTable(details) {
+      if (!details) {
+        return "";
+      }
+      const rows = [
+        ["Education level", details.level === "graduation" ? "Graduation" : "Junior college"],
+        ["Stream", details.stream],
+        ["Current standard", details.standard],
+        ["Admission year", details.admissionYear],
+        ["Academic year", details.academicYear],
+        ["Annual fees", details.annualFees],
+        ["Course", details.course],
+        ["Course duration", details.courseYears ? `${details.courseYears} year(s)` : ""],
+        ["Semesters per year", details.semestersPerYear],
+        ["Current semester", details.currentSemester],
+        ["11th percentage", details.percentage11],
+        ["11th passing year", details.passingYear11],
+        ["12th percentage", details.percentage12],
+        ["12th passing year", details.passingYear12]
+      ].filter(([, value]) => value !== undefined && value !== null && value !== "");
+
+      const subjectRows = details.subjects && details.subjects.length
+        ? `<tr><th>Subjects</th><td>${details.subjects.map((subject) => escapeHtml(subject)).join("<br>")}</td></tr>`
+        : "";
+
+      return `
+        <div class="table-wrap">
+          <table class="details-table">
+            <tbody>
+              ${rows.map(([label, value]) => `<tr><th>${escapeHtml(label)}</th><td>${escapeHtml(value)}</td></tr>`).join("")}
+              ${subjectRows}
+            </tbody>
+          </table>
+        </div>`;
     }
 
     function renderHome() {
@@ -434,7 +570,15 @@
             <details class="semester-card">
               <summary>Record ${records.length - index} · ${escapeHtml(new Date(record.created_at).toLocaleDateString())}</summary>
               ${recordSummary(record)}
-              <p>${escapeHtml(JSON.stringify(record.details, null, 2))}</p>
+              ${educationDetailsTable(record.details)}
+              ${record.details && record.details.semesters ? `
+                <h4>Semester details</h4>
+                ${record.details.semesters.map((semester) => `
+                  <div class="table-wrap">
+                    <p><strong>Semester ${semester.number}</strong></p>
+                    ${subjectTable(semester.subjects, semester.cgpa)}
+                  </div>`).join("")}
+              ` : ""}
             </details>`).join("")}
           <div class="workflow-actions">${button("home", "Back", true)} ${button("update", "Update my details")}</div>
         </div>`;
@@ -476,6 +620,81 @@
       return `<div><label for="field-${name}">${label}</label><input id="field-${name}" name="${name}" type="${type || "text"}" value="${safeValue}" required${type === "number" ? ' step="any"' : ""}></div>`;
     }
 
+    function subjectEditor(prefix, subjects, includeCredits) {
+      const items = subjects && subjects.length ? subjects : [includeCredits ? { name: "", credits: "" } : ""];
+      return `
+        <div class="subject-editor" id="${prefix}-subject-editor" data-prefix="${prefix}" data-include-credits="${includeCredits ? "true" : "false"}">
+          ${items.map((subject, index) => {
+            const name = includeCredits ? subject.name : subject;
+            const credits = includeCredits ? subject.credits : "";
+            return `
+              <div class="subject-box" data-subject-row>
+                <div>
+                  <label for="${prefix}-subject-${index + 1}">Subject ${index + 1}</label>
+                  <input id="${prefix}-subject-${index + 1}" name="${prefix}-subject-name" type="text" value="${escapeHtml(name)}" required>
+                </div>
+                ${includeCredits ? `
+                <div>
+                  <label for="${prefix}-credits-${index + 1}">Credits</label>
+                  <input id="${prefix}-credits-${index + 1}" name="${prefix}-subject-credits" type="number" min="1" step="any" value="${escapeHtml(credits)}" required>
+                </div>` : ""}
+                <button type="button" class="remove-subject" data-remove-subject aria-label="Remove subject ${index + 1}">Remove</button>
+              </div>`;
+          }).join("")}
+          <div><button type="button" class="secondary" data-add-subject>Add another subject</button></div>
+        </div>`;
+    }
+
+    function addSubjectBox(editor) {
+      const includeCredits = editor.dataset.includeCredits === "true";
+      const prefix = editor.dataset.prefix;
+      const count = editor.querySelectorAll("[data-subject-row]").length + 1;
+      const row = document.createElement("div");
+      row.className = "subject-box";
+      row.dataset.subjectRow = "";
+      row.innerHTML = `
+        <div>
+          <label for="${prefix}-subject-${count}">Subject ${count}</label>
+          <input id="${prefix}-subject-${count}" name="${prefix}-subject-name" type="text" required>
+        </div>
+        ${includeCredits ? `
+        <div>
+          <label for="${prefix}-credits-${count}">Credits</label>
+          <input id="${prefix}-credits-${count}" name="${prefix}-subject-credits" type="number" min="1" step="any" required>
+        </div>` : ""}
+        <button type="button" class="remove-subject" data-remove-subject aria-label="Remove subject ${count}">Remove</button>`;
+      editor.insertBefore(row, editor.lastElementChild);
+      row.querySelector("input").focus();
+    }
+
+    function renumberSubjectRows(editor) {
+      const prefix = editor.dataset.prefix;
+      editor.querySelectorAll("[data-subject-row]").forEach((row, index) => {
+        const number = index + 1;
+        const nameInput = row.querySelector('[name$="-subject-name"]');
+        const nameLabel = row.querySelector("label");
+        if (nameInput) {
+          nameInput.id = `${prefix}-subject-${number}`;
+          nameLabel.htmlFor = nameInput.id;
+          nameLabel.textContent = `Subject ${number}`;
+        }
+        const creditsInput = row.querySelector('[name$="-subject-credits"]');
+        if (creditsInput) {
+          creditsInput.id = `${prefix}-credits-${number}`;
+          const creditLabel = creditsInput.previousElementSibling;
+          if (creditLabel) {
+            creditLabel.htmlFor = creditsInput.id;
+          }
+        }
+      });
+    }
+
+    function collectSubjectNames(form, prefix) {
+      return Array.from(form.querySelectorAll(`[name="${prefix}-subject-name"]`))
+        .map((input) => input.value.trim())
+        .filter(Boolean);
+    }
+
     function renderJuniorForm(details) {
       const isUpdate = Boolean(details);
       const data = details || {};
@@ -486,10 +705,10 @@
             <div class="workflow-grid">
               ${inputField("stream", "Stream (for example, Science or Commerce)", data.stream)}
               ${inputField("standard", "Current standard", data.standard || "11th", null, ["11th", "12th"])}
-              ${inputField("subjectsText", "Subjects (one subject per line)", (data.subjects || []).join("\\n"), "textarea")}
               ${inputField("annualFees", "Total college fees for this year", data.annualFees, "number")}
               ${inputField("admissionYear", "Year of admission", data.admissionYear, "number")}
               <div><label for="academic-year">Academic year</label><input id="academic-year" value="${escapeHtml(currentAcademicYear())}" readonly></div>
+              ${subjectEditor("junior", data.subjects || [], false)}
             </div>
             <div class="workflow-actions"><button type="submit">${isUpdate ? "Save updated details" : "Save details"}</button>${button("home", "Cancel", true)}</div>
           </form>
@@ -503,8 +722,8 @@
           <p>Your current course year is estimated from your admission year and the current academic year (${escapeHtml(currentAcademicYear())}).</p>
           <form id="graduation-form">
             <div class="workflow-grid">
-              ${inputField("percentage11", "10th standard percentage", "", "number")}
-              ${inputField("passingYear11", "10th standard passing year", "", "number")}
+              ${inputField("percentage11", "11th standard percentage", "", "number")}
+              ${inputField("passingYear11", "11th standard passing year", "", "number")}
               ${inputField("percentage12", "12th standard percentage", "", "number")}
               ${inputField("passingYear12", "12th standard passing year", "", "number")}
               ${inputField("course", "Selected course", "")}
@@ -563,10 +782,7 @@
 
     function semesterCards() {
       return draft.semesters.map((semester) => {
-        const subjectList = semester.subjects.length ?
-          `<ul>${semester.subjects.map((subject) => `<li>${escapeHtml(subject.name)} — ${escapeHtml(subject.credits)} credits</li>`).join("")}</ul>` :
-          "<p>No subject details entered yet.</p>";
-        const content = `${subjectList}<p>CGPA: ${semester.cgpa == null ? "Not entered yet" : escapeHtml(semester.cgpa)}</p>`;
+        const content = subjectTable(semester.subjects, semester.cgpa);
         if (semester.number < draft.currentSemester) {
           return `<details class="semester-card"><summary>Sem ${semester.number}</summary>${content}</details>`;
         }
@@ -579,11 +795,10 @@
 
     function renderCurrentSemesterEditor() {
       const semester = draft.semesters[draft.currentSemester - 1];
-      const subjectsText = semester.subjects.map((subject) => `${subject.name} | ${subject.credits}`).join("\n");
       educationContent.innerHTML = `
         <div class="workflow-card">
           <h3>Course year ${draft.currentCourseYear} · Semester ${draft.currentSemester} of ${draft.totalSemesters}</h3>
-          <p>Enter subjects one per line as <strong>Subject name | credits</strong>. Earlier semesters are read-only; later semesters stay locked until you enter the previous CGPA.</p>
+          <p>Add each subject in a separate box. Earlier semesters are read-only; later semesters stay locked until you enter the previous CGPA.</p>
           <div>${semesterCards()}</div>
           ${semester.subjects.length ? `
             <form id="current-cgpa-form">
@@ -591,8 +806,7 @@
               <div class="workflow-actions"><button type="submit">${draft.currentSemester === draft.totalSemesters ? "Complete course" : "Save CGPA and unlock next semester"}</button>${button("home", "Save for later", true)}</div>
             </form>` : `
             <form id="current-subjects-form">
-              ${inputField("subjectCount", "Number of subjects this semester", semester.subjects.length || "", "number")}
-              ${inputField("subjectsText", "Subjects and credits (one per line: Subject | credits)", subjectsText, "textarea")}
+              ${subjectEditor("semester", semester.subjects, true)}
               <div class="workflow-actions"><button type="submit">Save semester subjects</button>${button("home", "Cancel", true)}</div>
             </form>`}
         </div>`;
@@ -605,6 +819,15 @@
 
     async function saveSnapshot(details, eventType) {
       showWorkflowMessage("");
+      if (eventType === "details-updated") {
+        const { error: deleteError } = await window.siteSupabase
+          .from("student_academic_records")
+          .delete()
+          .eq("user_id", signedInUserId);
+        if (deleteError) {
+          throw deleteError;
+        }
+      }
       const { data, error } = await window.siteSupabase
         .from("student_academic_records")
         .insert({ user_id: signedInUserId, level: details.level, details, event_type: eventType })
@@ -651,30 +874,50 @@
       const details = JSON.parse(JSON.stringify(latestDetails()));
       const fields = updateFieldConfig(details, category);
       const formFields = fields.map(([name, label, type]) => {
-        let value = details[name];
-        if (name === "subjectsText") {
-          value = category === "semester"
-            ? (details.semesters[details.currentSemester - 1].subjects || []).map((subject) => `${subject.name} | ${subject.credits}`).join("\n")
-            : (details.subjects || []).join("\n");
-        } else if (name === "subjectCount") {
-          value = (details.semesters[details.currentSemester - 1].subjects || []).length || "";
+        if (name === "subjectsText" || name === "subjectCount") {
+          return "";
         }
+        let value = details[name];
         const options = type && type.startsWith("select:")
           ? type.slice(7).split(",")
           : null;
         return inputField(name, label, value, options ? null : type, options);
       }).join("");
+      const subjectFields = category === "subjects"
+        ? subjectEditor("junior-update", details.subjects || [], false)
+        : category === "semester"
+          ? subjectEditor("semester-update", details.semesters[details.currentSemester - 1].subjects || [], true)
+          : "";
       educationContent.innerHTML = `
         <div class="workflow-card">
           <h3>Update ${escapeHtml(category === "marks" ? "school marks" : category === "semester" ? "semester subjects" : "study details")}</h3>
           <form id="update-form" data-category="${escapeHtml(category)}">
-            <div class="workflow-grid">${formFields}</div>
+            <div class="workflow-grid">${formFields}${subjectFields}</div>
             <div class="workflow-actions"><button type="submit">Save as a new record</button>${button("update", "Choose another detail", true)}</div>
           </form>
         </div>`;
     }
 
     educationContent.addEventListener("click", async (event) => {
+      const removeButton = event.target.closest("[data-remove-subject]");
+      if (removeButton) {
+        const editor = removeButton.closest(".subject-editor");
+        const rows = editor.querySelectorAll("[data-subject-row]");
+        if (rows.length === 1) {
+          removeButton.closest("[data-subject-row]").querySelector("input").value = "";
+        } else {
+          removeButton.closest("[data-subject-row]").remove();
+          renumberSubjectRows(editor);
+        }
+        return;
+      }
+
+      const addButton = event.target.closest("[data-add-subject]");
+      if (addButton) {
+        addSubjectBox(addButton.closest(".subject-editor"));
+        return;
+      }
+
       const target = event.target.closest("[data-action]");
       if (!target) {
         return;
@@ -737,11 +980,12 @@
       const values = new FormData(form);
       try {
         if (form.id === "junior-form") {
+          const subjects = collectSubjectNames(form, "junior");
           const details = {
             level: "junior",
             stream: String(values.get("stream")).trim(),
             standard: values.get("standard"),
-            subjects: String(values.get("subjectsText")).split(/\r?\n/).map((item) => item.trim()).filter(Boolean),
+            subjects,
             annualFees: Number(values.get("annualFees")),
             admissionYear: Number(values.get("admissionYear")),
             academicYear: currentAcademicYear(),
@@ -807,14 +1051,15 @@
           semester.cgpa = Number(values.get("cgpa"));
           renderPriorCgpaEntry();
         } else if (form.id === "current-subjects-form") {
-          const subjects = parseSubjects(String(values.get("subjectsText")));
-          const subjectCount = Number(values.get("subjectCount"));
-          if (!Number.isInteger(subjectCount) || subjectCount < 1 || subjects.length !== subjectCount ||
+          const names = Array.from(form.querySelectorAll('[name="semester-subject-name"]')).map((input) => input.value.trim()).filter(Boolean);
+          const creditInputs = Array.from(form.querySelectorAll('[name="semester-subject-credits"]'));
+          const subjects = names.map((name, index) => ({
+            name,
+            credits: Number(creditInputs[index].value)
+          }));
+          if (!subjects.length || subjects.length !== creditInputs.length ||
               subjects.some((subject) => !Number.isFinite(subject.credits) || subject.credits <= 0)) {
-            throw new Error("Enter a subject count that matches the subject list, with positive credits for each subject.");
-          }
-          if (!subjects.length) {
-            throw new Error("Enter at least one subject with a positive credit value, one per line as Subject | credits.");
+            throw new Error("Enter every subject name and a positive credit value.");
           }
           draft.semesters[draft.currentSemester - 1].subjects = subjects;
           await saveSnapshot(draft, "semester-details");
@@ -864,6 +1109,22 @@
         } else if (form.id === "update-form") {
           const details = JSON.parse(JSON.stringify(latestDetails()));
           const category = form.dataset.category;
+          if (category === "subjects") {
+            details.subjects = collectSubjectNames(form, "junior-update");
+          }
+          if (category === "semester") {
+            const names = Array.from(form.querySelectorAll('[name="semester-update-subject-name"]')).map((input) => input.value.trim()).filter(Boolean);
+            const creditInputs = Array.from(form.querySelectorAll('[name="semester-update-subject-credits"]'));
+            const subjectList = names.map((name, index) => ({
+              name,
+              credits: Number(creditInputs[index].value)
+            }));
+            if (!subjectList.length || subjectList.length !== creditInputs.length ||
+                subjectList.some((subject) => !Number.isFinite(subject.credits) || subject.credits <= 0)) {
+              throw new Error("Enter every subject name and a positive credit value.");
+            }
+            details.semesters[details.currentSemester - 1].subjects = subjectList;
+          }
           for (const [key, value] of values.entries()) {
             if (key === "subjectsText") {
               if (category === "semester") {
@@ -1044,4 +1305,3 @@
 </body>
 
 </html>
-
